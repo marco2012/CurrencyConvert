@@ -104,7 +104,7 @@ class ViewController: FormViewController {
                     let amountForm: DecimalRow? = self?.form.rowBy(tag: "amount")
                     let feeForm: DecimalRow? = self?.form.rowBy(tag: "fee")
                     if amountForm?.value==nil || feeForm?.value==nil {
-                        self!.showAlert(title: "Errore", message: "Compila tutti i campi")
+                        self!.showAlert(title: "Error", message: "Fill the missing fields")
                     } else {
                         
                         let amount = Double(amountForm!.value!)
