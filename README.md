@@ -1,7 +1,6 @@
 # **CurrencyConvert**
 
-### Simple foreign currency exchange rate calculator with bank fee.
-
+### Simple foreign currency exchange rate calculator with bank fee, tax and tip.
 
 
 <p align="center">
