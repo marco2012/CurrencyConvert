@@ -7,28 +7,33 @@
 //
 
 import Eureka
-import Alamofire
-import SwiftyJSON
 
 class ViewController: FormViewController {
     
+    let defaults = UserDefaults.standard
     var transCurr:String = "USD"
     var crdhldBillCurr:String = "EUR"
     var selectedDate:String = ""
-    let currencies = ["USD", "JPY", "BGN", "CZK", "DKK", "GBP", "HUF", "PLN", "RON", "SEK", "CHF", "ISK", "NOK", "HRK", "RUB", "TRY", "AUD", "BRL", "CAD", "CNY", "HKD", "IDR", "ILS", "INR", "KRW", "MXN", "MYR", "NZD", "PHP", "SGD", "THB", "ZAR"].sorted()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        selectedDate = formatDate(date: Date())
-        
+        transCurr = defaults.string(forKey: "transCurr") ?? "USD"
+        crdhldBillCurr = defaults.string(forKey: "crdhldBillCurr") ?? "EUR"
+        selectedDate = defaults.string(forKey: "selectedDate") ?? "EUR"
+
         buildForm()
         
     } //end viewController
     
-    func buildForm(){
+    @IBAction func openSettings(_ sender: UIBarButtonItem) {
+        self.performSegue(withIdentifier: "settingsSegue", sender: self)
+    }
+    
+    
+    private func buildForm(){
         
-        form +++ Section("Transaction Details")
+        form +++ Section()
             
             <<< DecimalRow() {
                 $0.title = "Transaction amount"
@@ -37,62 +42,56 @@ class ViewController: FormViewController {
                 formatter.locale = .init(identifier: "en_US")
                 formatter.numberStyle = .currency
                 $0.formatter = formatter
-            }
+                }
             
-            <<< PushRow<String>() {
-                $0.title = "Transaction Currency"
-                $0.tag = "transCurr"
-                $0.options = currencies
-                $0.value = "USD"
-                $0.selectorTitle = "Transaction Currency"
-                }.onPresent { from, to in
-                    to.dismissOnSelection = true
-                    to.dismissOnChange = false
-                    to.selectableRowCellUpdate = { cell, row in
-                        cell.textLabel?.text = row.selectableValue!
-                    }
-                }.onChange { [unowned self] row in
-                    if (row.value != nil){
-                        self.transCurr = row.value!
-                    }
-            }
-            
-            <<< DateRow(){
-                $0.title = "Transaction date"
-                $0.value = Date()
-                $0.tag = "date"
-                }.cellUpdate { (cell, row) in
-                    cell.datePicker.maximumDate = Date()
-                }.onChange({ (row) in
-                    self.selectedDate = self.formatDate(date: row.value!)   //updating the value on change
-                })
-            
-            
-            +++ Section("Your Card Details")
+        +++ Section()
             
             <<< DecimalRow() {
-                $0.title = "Bank fee (%)"
+                $0.title = "Bank fee"
                 $0.value = 3
                 $0.tag = "fee"
+                
+                let formatter = DecimalFormatter()
+                formatter.locale = .current
+                formatter.positiveSuffix = "%"
+                $0.formatter = formatter
+                }.onCellHighlightChanged { cell, row in
+                    if row.isHighlighted {
+                        let position = cell.textField.position(from: cell.textField.endOfDocument, offset: 0)!
+                        cell.textField.selectedTextRange = cell.textField.textRange(from: position, to: position)
+                }
             }
             
-            <<< PushRow<String>() {
-                $0.title = "Cardholder billing Currency"
-                $0.tag = "crdhldBillCurr"
-                $0.options = currencies
-                $0.value = "EUR"
-                $0.selectorTitle = "Cardholder billing Currency"
-                }.onPresent { from, to in
-                    to.dismissOnSelection = true
-                    to.dismissOnChange = false
-                    to.selectableRowCellUpdate = { cell, row in
-                        cell.textLabel?.text = row.selectableValue!
-                    }
-                }.onChange { [unowned self] row in
-                    if (row.value != nil){
-                        self.crdhldBillCurr = row.value!
+            <<< DecimalRow() {
+                $0.title = "Tip"
+                $0.value = 0.0
+                $0.tag = "tip"
+                let formatter = DecimalFormatter()
+                formatter.locale = .current
+                formatter.positiveSuffix = "%"
+                $0.formatter = formatter
+                }.onCellHighlightChanged { cell, row in
+                    if row.isHighlighted {
+                        let position = cell.textField.position(from: cell.textField.endOfDocument, offset: 0)!
+                        cell.textField.selectedTextRange = cell.textField.textRange(from: position, to: position)
                     }
             }
+            
+            <<< DecimalRow() {
+                $0.title = "Tax"
+                $0.value = 0.0
+                $0.tag = "tax"
+                let formatter = DecimalFormatter()
+                formatter.locale = .current
+                formatter.positiveSuffix = "%"
+                $0.formatter = formatter
+                }.onCellHighlightChanged { cell, row in
+                    if row.isHighlighted {
+                        let position = cell.textField.position(from: cell.textField.endOfDocument, offset: 0)!
+                        cell.textField.selectedTextRange = cell.textField.textRange(from: position, to: position)
+                    }
+            }
+            
             
             +++ Section() {section in
                 section.tag = "button_section"
@@ -103,53 +102,112 @@ class ViewController: FormViewController {
                 .onCellSelection { [weak self] (cell, row) in
                     let amountForm: DecimalRow? = self?.form.rowBy(tag: "amount")
                     let feeForm: DecimalRow? = self?.form.rowBy(tag: "fee")
+                    let tipForm: DecimalRow? = self?.form.rowBy(tag: "tip")
+                    let taxForm: DecimalRow? = self?.form.rowBy(tag: "tax")
+
                     if amountForm?.value==nil || feeForm?.value==nil {
                         self!.showAlert(title: "Error", message: "Fill the missing fields")
                     } else {
                         
-                        let amount = Double(amountForm!.value!)
+                        var amount = Double(amountForm!.value!)
                         let fee = Double(feeForm!.value!)
+                        let tip = Double(tipForm!.value!)
+                        let tax = Double(taxForm!.value!)
                         
-                        API().getConversionRates(from: self!.transCurr, to: self!.crdhldBillCurr, date: self!.selectedDate, completionHandler: {
-                            (conversion_rate) in
+                        DispatchQueue.main.async {
+                            self!.transCurr = self!.defaults.string(forKey: "transCurr") ?? "USD"
+                            self!.crdhldBillCurr = self!.defaults.string(forKey: "crdhldBillCurr") ?? "EUR"
+                            self!.selectedDate = self!.defaults.string(forKey: "selectedDate") ?? "EUR"
                             
-                            //add fee to conversion rate
-                            let conversion_rate_with_fee = conversion_rate + (fee/100.0)
-                            let amount_to_pay = (conversion_rate_with_fee*amount)
-                            let amount_to_pay_no_tax = (conversion_rate*amount)
-                            
-                            let amountToPay_row = self!.form.rowBy(tag: "amount_to_pay") as! DecimalRow
-                            amountToPay_row.value = self!.roundToPlaces(value: amount_to_pay, places: 2)
-                            amountToPay_row.reload()
-                            
-                            let conversion_rate_row = self!.form.rowBy(tag: "conversion_rate") as! DecimalRow
-                            conversion_rate_row.value = conversion_rate_with_fee
-                            conversion_rate_row.reload()
-                            
-                            let amountToPay_row_no_tax = self!.form.rowBy(tag: "amount_to_pay_no_tax") as! DecimalRow
-                            amountToPay_row_no_tax.value = self!.roundToPlaces(value: amount_to_pay_no_tax, places: 2)
-                            amountToPay_row_no_tax.reload()
-                            
-                            let conversion_rate_row_no_tax = self!.form.rowBy(tag: "conversion_rate_no_tax") as! DecimalRow
-                            conversion_rate_row_no_tax.value = conversion_rate
-                            conversion_rate_row_no_tax.reload()
-                            
-                            if let section = self!.form.sectionBy(tag: "button_section") {
-                                if let date = UserDefaults.standard.object(forKey: "date") as? Date {
-                                    let formatter = DateFormatter()
-                                    formatter.dateFormat = "HH:mm dd MMM"
-                                    section.footer = HeaderFooterView(title: "Last updated: \(formatter.string(from: date)) ")
+                            API().getConversionRates(from: self!.transCurr, to: self!.crdhldBillCurr, date: self!.selectedDate, completionHandler: {
+                                (conversion_rate) in
+                                
+                                //add fee to conversion rate
+                                let conversion_rate_with_fee = conversion_rate + (fee/100.0)
+                                
+                                let original_tip = (amount*tip)/100.0
+                                let original_tax = (amount*tax)/100.0
+                                
+                                if tip != 0.0 {
+                                    amount += original_tip
+                                }
+                                if tax != 0.0 {
+                                    amount += original_tax
+                                }
+                                let amount_to_pay = (conversion_rate_with_fee * amount)
+                                let amount_to_pay_no_tax = (conversion_rate * amount)
+                                let difference = amount_to_pay_no_tax - amount_to_pay
+                                
+                                let amountToPay_row = self!.form.rowBy(tag: "amount_to_pay") as! DecimalRow
+                                amountToPay_row.value = self!.roundToPlaces(value: amount_to_pay, places: 2)
+                                amountToPay_row.reload()
+                                
+//                                let conversion_rate_row = self!.form.rowBy(tag: "conversion_rate") as! DecimalRow
+//                                conversion_rate_row.value = conversion_rate_with_fee
+//                                conversion_rate_row.reload()
+
+                                let amountToPay_row_no_tax = self!.form.rowBy(tag: "amount_to_pay_no_tax") as! DecimalRow
+                                amountToPay_row_no_tax.value = self!.roundToPlaces(value: amount_to_pay_no_tax, places: 2)
+                                amountToPay_row_no_tax.reload()
+                                
+//                                let conversion_rate_row_no_tax = self!.form.rowBy(tag: "conversion_rate_no_tax") as! DecimalRow
+//                                conversion_rate_row_no_tax.value = conversion_rate
+//                                conversion_rate_row_no_tax.reload()
+                                
+                                let difference_row = self!.form.rowBy(tag: "difference") as! DecimalRow
+                                difference_row.value = self!.roundToPlaces(value: difference, places: 2)
+                                difference_row.reload()
+                                
+                                let original_amount_row = self!.form.rowBy(tag: "original_amount") as! DecimalRow
+                                original_amount_row.value = self!.roundToPlaces(value: amount, places: 2)
+                                original_amount_row.reload()
+
+                                let original_tip_row = self!.form.rowBy(tag: "original_tip") as! DecimalRow
+                                original_tip_row.value = self!.roundToPlaces(value: original_tip, places: 2)
+                                original_tip_row.reload()
+                                
+                                let original_tax_row = self!.form.rowBy(tag: "original_tax") as! DecimalRow
+                                original_tax_row.value = self!.roundToPlaces(value: original_tax, places: 2)
+                                original_tax_row.reload()
+                                
+                                
+                                if let section = self!.form.sectionBy(tag: "button_section") {
+                                    if let date = UserDefaults.standard.object(forKey: "date") as? Date {
+                                        let formatter = DateFormatter()
+                                        formatter.dateFormat = "HH:mm dd MMM"
+                                        var last_updated = ""
+                                        if formatter.string(from: date) == formatter.string(from: Date()) {
+                                            last_updated = "now"
+                                        } else {
+                                            last_updated = formatter.string(from: date)
+                                        }
+                                        section.footer = HeaderFooterView(title: "Last updated: \(last_updated) ")
+                                        section.reload()
+                                    }
+                                }
+                                
+                                if let section = self!.form.sectionBy(tag: "section_with_fee") {
+                                    section.footer = HeaderFooterView(title: "Conversion rate: \(self!.roundToPlaces(value: conversion_rate_with_fee, places: 3)) ")
                                     section.reload()
                                 }
-                            }
+                                
+                                if let section = self!.form.sectionBy(tag: "section_without_fee") {
+                                    section.footer = HeaderFooterView(title: "Conversion rate: \(self!.roundToPlaces(value: conversion_rate, places: 3)) ")
+                                    section.reload()
+                                }
+                                
+                                
+                            })
                             
-                        })
+                        }
                         
                     }
             }
             
             
-            +++ Section(header: "Result", footer: "The amount to pay includes taxes ")
+            +++ Section() {section in
+                section.tag = "section_with_fee"
+            }
             
                 <<< DecimalRow(){
                     $0.useFormatterDuringInput = true
@@ -160,15 +218,17 @@ class ViewController: FormViewController {
                     formatter.locale = .init(identifier: "it_IT")
                     formatter.numberStyle = .currency
                     $0.formatter = formatter
-                }
+                    }
             
-                <<< DecimalRow() {
-                    $0.title = "Conversion Rate with fee"
-                    $0.tag = "conversion_rate"
-                    $0.disabled = true
-                }
+//                <<< DecimalRow() {
+//                    $0.title = "Conversion Rate with fee"
+//                    $0.tag = "conversion_rate"
+//                    $0.disabled = true
+//                }
         
-            +++ Section(header: "Result without taxes", footer: "The amount to pay does not include taxes ")
+            +++ Section() {section in
+                section.tag = "section_without_fee"
+            }
             
                 <<< DecimalRow(){
                     $0.useFormatterDuringInput = true
@@ -181,51 +241,84 @@ class ViewController: FormViewController {
                     $0.formatter = formatter
                 }
             
-                <<< DecimalRow() {
-                    $0.title = "Conversion Rate without fee"
-                    $0.tag = "conversion_rate_no_tax"
+//                <<< DecimalRow() {
+//                    $0.title = "Conversion Rate without fee"
+//                    $0.tag = "conversion_rate_no_tax"
+//                    $0.disabled = true
+//                }
+        
+                <<< DecimalRow(){
+                    $0.title = "Difference"
+                    $0.tag = "difference"
                     $0.disabled = true
+                    let formatter = CurrencyFormatter()
+                    formatter.locale = .init(identifier: "it_IT")
+                    formatter.numberStyle = .currency
+                    $0.formatter = formatter
                 }
         
+            +++ Section() {section in
+                section.tag = "original_section"
+            }
+            
+            <<< DecimalRow() {
+                $0.title = "Original amount"
+                $0.tag = "original_amount"
+                $0.disabled = true
+                let formatter = CurrencyFormatter()
+                formatter.locale = .init(identifier: "en_US")
+                formatter.numberStyle = .currency
+                $0.formatter = formatter
+        }
+        
+            <<< DecimalRow() {
+                $0.title = "Tip"
+                $0.value = 0.0
+                $0.tag = "original_tip"
+                $0.disabled = true
+                let formatter = CurrencyFormatter()
+                formatter.locale = .init(identifier: "en_US")
+                formatter.numberStyle = .currency
+                $0.formatter = formatter
+            }
+            
+            <<< DecimalRow() {
+                $0.title = "Tax"
+                $0.value = 0.0
+                $0.tag = "original_tax"
+                $0.disabled = true
+                let formatter = CurrencyFormatter()
+                formatter.locale = .init(identifier: "en_US")
+                formatter.numberStyle = .currency
+                $0.formatter = formatter
+            }
+        
+        
+
     }
 
-    func showAlert(title:String, message:String) {
+    public func showAlert(title:String, message:String) {
         let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
         let defaultAction = UIAlertAction(title: "OK", style: .default, handler: nil)
         alertController.addAction(defaultAction)
         present(alertController, animated: true)
     }
     
-    private func formatDate(date:Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
-    }
-    
-    private func roundToPlaces(value:Double, places:Int) -> Double {
+    public func roundToPlaces(value:Double, places:Int) -> Double {
         let divisor = pow(10.0, Double(places))
         return round(value * divisor) / divisor
     }
     
-    class CurrencyFormatter : NumberFormatter, FormatterProtocol {
-        override func getObjectValue(_ obj: AutoreleasingUnsafeMutablePointer<AnyObject?>?, for string: String, range rangep: UnsafeMutablePointer<NSRange>?) throws {
-            guard obj != nil else { return }
-            var str = string.components(separatedBy: CharacterSet.decimalDigits.inverted).joined(separator: "")
-            if !string.isEmpty, numberStyle == .currency && !string.contains(currencySymbol) {
-                // Check if the currency symbol is at the last index
-                if let formattedNumber = self.string(from: 1), String(formattedNumber[formattedNumber.index(before: formattedNumber.endIndex)...]) == currencySymbol {
-                    // This means the user has deleted the currency symbol. We cut the last number and then add the symbol automatically
-                    str = String(str[..<str.index(before: str.endIndex)])
-                    
-                }
-            }
-            obj?.pointee = NSNumber(value: (Double(str) ?? 0.0)/Double(pow(10.0, Double(minimumFractionDigits))))
-        }
-        
-        func getNewPosition(forPosition position: UITextPosition, inTextInput textInput: UITextInput, oldValue: String?, newValue: String?) -> UITextPosition {
-            return textInput.position(from: position, offset:((newValue?.count ?? 0) - (oldValue?.count ?? 0))) ?? position
-        }
-    }
+    
+    /*
+     // MARK: - Navigation
+     
+     // In a storyboard-based application, you will often want to do a little preparation before navigation
+     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+     // Get the new view controller using segue.destination.
+     // Pass the selected object to the new view controller.
+     }
+     */
 
 }
 

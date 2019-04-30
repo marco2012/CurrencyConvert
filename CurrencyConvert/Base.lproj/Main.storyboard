@@ -20,11 +20,40 @@
                         <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
-                    <navigationItem key="navigationItem" title="CurrencyConvert" id="9xC-dG-TKq"/>
+                    <navigationItem key="navigationItem" title="CurrencyConvert" id="9xC-dG-TKq">
+                        <barButtonItem key="rightBarButtonItem" title="Item" image="settings" id="aBm-p4-prm">
+                            <connections>
+                                <action selector="openSettings:" destination="BYZ-38-t0r" id="I5m-D1-8pF"/>
+                                <segue destination="ahK-iR-l65" kind="showDetail" identifier="settingsSegue" id="zrb-yi-JOt"/>
+                            </connections>
+                        </barButtonItem>
+                    </navigationItem>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="852.17391304347836" y="136.60714285714286"/>
+        </scene>
+        <!--Settings-->
+        <scene sceneID="0ze-gs-g8E">
+            <objects>
+                <viewController id="7yG-Mp-2iU" customClass="SettingsViewController" customModule="CurrencyConvert" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="zwH-ve-RGf">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <viewLayoutGuide key="safeArea" id="9Sy-4h-gu4"/>
+                    </view>
+                    <navigationItem key="navigationItem" title="Settings" id="cDD-fI-1fr">
+                        <barButtonItem key="rightBarButtonItem" systemItem="done" id="3RM-DB-d0u">
+                            <connections>
+                                <action selector="closeSettings:" destination="7yG-Mp-2iU" id="NHU-EA-azA"/>
+                            </connections>
+                        </barButtonItem>
+                    </navigationItem>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="WuY-KI-ejL" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="2589.8550724637685" y="136.60714285714286"/>
         </scene>
         <!--Navigation Controller-->
         <scene sceneID="Lkg-WE-gbG">
@@ -44,5 +73,26 @@
             </objects>
             <point key="canvasLocation" x="-61" y="137"/>
         </scene>
+        <!--Navigation Controller-->
+        <scene sceneID="BUr-vN-f4e">
+            <objects>
+                <navigationController automaticallyAdjustsScrollViewInsets="NO" id="ahK-iR-l65" sceneMemberID="viewController">
+                    <toolbarItems/>
+                    <navigationBar key="navigationBar" contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" largeTitles="YES" id="ygC-cg-TUX">
+                        <rect key="frame" x="0.0" y="44" width="414" height="96"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                    </navigationBar>
+                    <nil name="viewControllers"/>
+                    <connections>
+                        <segue destination="7yG-Mp-2iU" kind="relationship" relationship="rootViewController" id="eb8-JH-HUF"/>
+                    </connections>
+                </navigationController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="zjT-NX-Qcd" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="1679.7101449275362" y="136.60714285714286"/>
+        </scene>
     </scenes>
+    <resources>
+        <image name="settings" width="33.333332061767578" height="33.333332061767578"/>
+    </resources>
 </document>

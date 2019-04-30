@@ -20,8 +20,7 @@ struct API {
             
             switch response.result {
             case .success(let json):
-                
-                //if let json = response.result.value {
+                    print("Request sent!")
                     let d = JSON(json)
                     print(d)
                     
@@ -33,6 +32,7 @@ struct API {
                 //}
                 
             case .failure(let error):
+                print(error)
                 completionHandler( defaults.double(forKey: "conversionRate") )
             }
             
